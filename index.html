@@ -2019,6 +2019,17 @@ function calculatePrediction() {
     let awayExp = awayOffRate * homeDefRate * leagueAvg * awayMorale;
     homeExp *= 1.03;
 
+   let scoreScaleFactor = 1.0;
+    if(state.currentLeague === "WNBA"){
+        scoreScaleFactor = 1.55;
+    }else if(state.currentLeague === "NBA"){
+        scoreScaleFactor = 2.0;
+    }else if(state.currentLeague === "CBA"){
+        scoreScaleFactor = 1.75;
+    }
+    homeExp = homeExp * scoreScaleFactor;
+    awayExp = awayExp * scoreScaleFactor;
+
     if (state.injury.home) homeExp *= (1 - state.injury.home.impact * 0.01);
     if (state.injury.away) awayExp *= (1 - state.injury.away.impact * 0.01);
 
