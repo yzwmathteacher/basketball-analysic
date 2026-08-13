@@ -110,7 +110,10 @@
         border-radius: 6px;
         margin-bottom: 6px;
         font-size: 13px;
+        cursor: pointer;
+        transition: background 0.2s;
     }
+    .team-item:hover { background: #1e3a8a; }
     .team-item .del {
         color: #ef4444;
         cursor: pointer;
@@ -361,12 +364,34 @@
         color: #60a5fa;
     }
     .player-item {
-        padding: 5px 8px;
+        padding: 6px 8px;
         background: #0f172a;
         border-radius: 4px;
         margin-bottom: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
     }
+    .player-item:hover { background: #1e3a8a; }
+    .player-item .pos { color: #94a3b8; margin-right: 6px; }
     
+    .tactic-box {
+        margin-top: 12px;
+        padding: 10px;
+        background: #0f172a;
+        border-radius: 6px;
+        font-size: 12px;
+    }
+    .tactic-box .tactic-label { color: #94a3b8; margin-bottom: 4px; }
+    .tactic-box .tactic-value { font-weight: 600; cursor: pointer; }
+    .tactic-suggest {
+        margin-top: 8px;
+        padding: 10px;
+        background: rgba(34,197,94,0.1);
+        border-radius: 6px;
+        font-size: 12px;
+        color: #86efac;
+    }
+
     @media (max-width: 1200px) {
         .main-grid { grid-template-columns: 1fr; }
         .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -422,6 +447,7 @@
                 <div class="team-list" id="teamList">
                     <div style="color:#64748b; font-size:12px; text-align:center; padding:20px;">暂无球队</div>
                 </div>
+                <div style="font-size:11px; color:#64748b; margin-top:8px;">💡 点击球队可快速填充到预测表单</div>
             </div>
 
             <div class="panel">
@@ -430,31 +456,30 @@
                     <div class="lineup-col">
                         <h4>主队首发</h4>
                         <div id="homeLineup">
-                            <div class="player-item">PG - 待录入</div>
-                            <div class="player-item">SG - 待录入</div>
-                            <div class="player-item">SF - 待录入</div>
-                            <div class="player-item">PF - 待录入</div>
-                            <div class="player-item">C - 待录入</div>
+                            <div class="player-item" onclick="editPlayer('home', 0)"><span class="pos">PG</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('home', 1)"><span class="pos">SG</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('home', 2)"><span class="pos">SF</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('home', 3)"><span class="pos">PF</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('home', 4)"><span class="pos">C</span><span class="pname">点击录入</span></div>
                         </div>
                     </div>
                     <div class="lineup-col">
                         <h4>客队首发</h4>
                         <div id="awayLineup">
-                            <div class="player-item">PG - 待录入</div>
-                            <div class="player-item">SG - 待录入</div>
-                            <div class="player-item">SF - 待录入</div>
-                            <div class="player-item">PF - 待录入</div>
-                            <div class="player-item">C - 待录入</div>
+                            <div class="player-item" onclick="editPlayer('away', 0)"><span class="pos">PG</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('away', 1)"><span class="pos">SG</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('away', 2)"><span class="pos">SF</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('away', 3)"><span class="pos">PF</span><span class="pname">点击录入</span></div>
+                            <div class="player-item" onclick="editPlayer('away', 4)"><span class="pos">C</span><span class="pname">点击录入</span></div>
                         </div>
                     </div>
                 </div>
-                <div style="margin-top:12px; padding:10px; background:#0f172a; border-radius:6px; font-size:12px;">
-                    <div style="color:#94a3b8; margin-bottom:4px;">对手常用战术</div>
-                    <div style="font-weight:600;">--</div>
+                <div class="tactic-box">
+                    <div class="tactic-label">对手常用战术</div>
+                    <div class="tactic-value" id="opponentTactic" onclick="editTactic()">点击录入</div>
                 </div>
-                <div style="margin-top:8px; padding:10px; background:rgba(34,197,94,0.1); border-radius:6px; font-size:12px; color:#86efac;">
-                    <div style="margin-bottom:4px;">💡 推荐战术应对</div>
-                    <div>--</div>
+                <div class="tactic-suggest" id="tacticSuggest">
+                    💡 录入对手战术后生成推荐应对
                 </div>
             </div>
         </div>
@@ -736,11 +761,21 @@ let simState = null;
 let trendChart = null;
 let pointsChart = null;
 
+// 阵容数据
+let lineups = {
+    home: ['', '', '', '', ''],
+    away: ['', '', '', '', '']
+};
+let opponentTactic = '';
+
+const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
+
 // ==================== 初始化 ====================
 window.onload = function() {
     loadFromStorage();
     updateStats();
     renderTeamList();
+    renderLineups();
     initCharts();
     generateFingerprint();
 };
@@ -761,11 +796,21 @@ function addTeam() {
     updateStats();
 }
 
-function removeTeam(name) {
+function removeTeam(name, e) {
+    e.stopPropagation();
     teams = teams.filter(t => !(t.name === name && t.league === currentLeague));
     saveToStorage();
     renderTeamList();
     updateStats();
+}
+
+function fillTeam(name) {
+    const team = teams.find(t => t.name === name && t.league === currentLeague);
+    if (!team) return;
+    document.getElementById('homeTeam').value = team.name;
+    document.getElementById('homeElo').value = team.elo;
+    document.getElementById('homePpg').value = team.ppg;
+    document.getElementById('homePapg').value = team.papg;
 }
 
 function renderTeamList() {
@@ -776,9 +821,9 @@ function renderTeamList() {
         return;
     }
     list.innerHTML = filtered.map(t => `
-        <div class="team-item">
+        <div class="team-item" onclick="fillTeam('${t.name}')">
             <span>${t.name}</span>
-            <span class="del" onclick="removeTeam('${t.name}')">删除</span>
+            <span class="del" onclick="removeTeam('${t.name}', event)">删除</span>
         </div>
     `).join('');
 }
@@ -793,6 +838,66 @@ document.querySelectorAll('.league-tab').forEach(tab => {
         renderTeamList();
     });
 });
+
+// ==================== 首发阵容录入 ====================
+function editPlayer(side, index) {
+    const current = lineups[side][index];
+    const name = prompt(`请输入 ${positions[index]} 球员姓名：`, current);
+    if (name !== null) {
+        lineups[side][index] = name.trim();
+        saveToStorage();
+        renderLineups();
+    }
+}
+
+function editTactic() {
+    const tactic = prompt('请输入对手常用战术（如：挡拆进攻、联防、三分大队等）：', opponentTactic);
+    if (tactic !== null) {
+        opponentTactic = tactic.trim();
+        saveToStorage();
+        renderTactic();
+    }
+}
+
+function renderLineups() {
+    ['home', 'away'].forEach(side => {
+        const container = document.getElementById(side + 'Lineup');
+        const items = container.querySelectorAll('.player-item');
+        items.forEach((item, i) => {
+            const nameSpan = item.querySelector('.pname');
+            nameSpan.textContent = lineups[side][i] || '点击录入';
+        });
+    });
+}
+
+function renderTactic() {
+    document.getElementById('opponentTactic').textContent = opponentTactic || '点击录入';
+    const suggestBox = document.getElementById('tacticSuggest');
+    
+    if (!opponentTactic) {
+        suggestBox.innerHTML = '💡 录入对手战术后生成推荐应对';
+        return;
+    }
+    
+    // 简单战术匹配推荐
+    let suggest = '💡 推荐应对：';
+    const t = opponentTactic.toLowerCase();
+    if (t.includes('挡拆') || t.includes('pick')) {
+        suggest += '收缩防挡拆 + 内线协防，限制顺下得分';
+    } else if (t.includes('三分') || t.includes('外线')) {
+        suggest += '无限换防 + 扑防外线，放空非威胁点';
+    } else if (t.includes('联防')) {
+        suggest += '罚球线策应 + 底角三分，破联防站位';
+    } else if (t.includes('快攻') || t.includes('转换')) {
+        suggest += '降节奏 + 落阵地，减少失误退防';
+    } else if (t.includes('内线') || t.includes('单打')) {
+        suggest += '包夹内线 + 弱侧轮转，逼出球';
+    } else {
+        suggest += '针对性防守 + 利用自身优势点进攻';
+    }
+    
+    suggestBox.innerHTML = suggest;
+}
 
 // ==================== 预测核心算法 ====================
 function calculatePrediction() {
@@ -830,10 +935,10 @@ function calculatePrediction() {
 
     // 基于分差的胜率（正态分布近似）
     const pointDiff = homeExp - awayExp;
-    const stdDev = 12; // NBA得分标准差约12分
+    const stdDev = 12;
     const effWinProb = 0.5 + 0.5 * Math.tanh(pointDiff / (stdDev * 1.2));
 
-    // 泊松模型胜率（用正态近似）
+    // 泊松模型胜率
     const poissonWinProb = 0.5 + 0.5 * Math.tanh((homeExp - awayExp) / (stdDev * 1.5));
 
     // 加权融合
@@ -919,7 +1024,7 @@ function startSimulation() {
         homeScore: 0,
         awayScore: 0,
         qScores: [0, 0, 0, 0],
-        homeRate: homeExp / 48, // 每分钟得分率
+        homeRate: homeExp / 48,
         awayRate: awayExp / 48,
         events: []
     };
@@ -933,14 +1038,12 @@ function startSimulation() {
 }
 
 function simStep() {
-    // 时间推进
     simState.second -= 3;
     if (simState.second < 0) {
         simState.second = 60 + simState.second;
         simState.minute--;
     }
     
-    // 随机得分事件
     if (Math.random() < simState.homeRate / 60 * 3) {
         const points = Math.random() < 0.4 ? 3 : (Math.random() < 0.6 ? 2 : 1);
         simState.homeScore += points;
@@ -954,10 +1057,8 @@ function simStep() {
         addLog('away', `客队${points}分命中！`);
     }
     
-    // 更新显示
     updateSimDisplay();
     
-    // 节间休息
     if (simState.minute <= 0 && simState.second <= 0) {
         if (simState.quarter < 4) {
             addLog('system', `第${simState.quarter}节结束`);
@@ -1011,7 +1112,6 @@ function resetSimulation() {
 
 // ==================== 图表 ====================
 function initCharts() {
-    // 趋势图
     const trendCtx = document.getElementById('trendChart').getContext('2d');
     trendChart = new Chart(trendCtx, {
         type: 'line',
@@ -1037,7 +1137,6 @@ function initCharts() {
         }
     });
 
-    // 得分分布图
     const pointsCtx = document.getElementById('pointsChart').getContext('2d');
     pointsChart = new Chart(pointsCtx, {
         type: 'bar',
@@ -1160,13 +1259,20 @@ function saveWeights() {
 function saveToStorage() {
     localStorage.setItem('basketball_teams', JSON.stringify(teams));
     localStorage.setItem('basketball_history', JSON.stringify(history));
+    localStorage.setItem('basketball_lineups', JSON.stringify(lineups));
+    localStorage.setItem('basketball_tactic', opponentTactic);
 }
 
 function loadFromStorage() {
     const t = localStorage.getItem('basketball_teams');
     const h = localStorage.getItem('basketball_history');
+    const l = localStorage.getItem('basketball_lineups');
+    const tc = localStorage.getItem('basketball_tactic');
+    
     if (t) teams = JSON.parse(t);
     if (h) history = JSON.parse(h);
+    if (l) lineups = JSON.parse(l);
+    if (tc) opponentTactic = tc;
     
     const w = localStorage.getItem('basketball_weights');
     if (w) {
@@ -1179,7 +1285,7 @@ function loadFromStorage() {
 }
 
 function exportData() {
-    const data = { teams, history, exportTime: new Date().toISOString() };
+    const data = { teams, history, lineups, opponentTactic, exportTime: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1200,9 +1306,13 @@ function importData() {
                 const data = JSON.parse(ev.target.result);
                 if (data.teams) teams = data.teams;
                 if (data.history) history = data.history;
+                if (data.lineups) lineups = data.lineups;
+                if (data.opponentTactic) opponentTactic = data.opponentTactic;
                 saveToStorage();
                 renderTeamList();
                 renderHistory();
+                renderLineups();
+                renderTactic();
                 updateStats();
                 alert('导入成功');
             } catch {
@@ -1218,10 +1328,16 @@ function clearData() {
     if (!confirm('确定要清空所有数据吗？此操作不可恢复！')) return;
     teams = [];
     history = [];
+    lineups = { home: ['','','','',''], away: ['','','','',''] };
+    opponentTactic = '';
     localStorage.removeItem('basketball_teams');
     localStorage.removeItem('basketball_history');
+    localStorage.removeItem('basketball_lineups');
+    localStorage.removeItem('basketball_tactic');
     renderTeamList();
     renderHistory();
+    renderLineups();
+    renderTactic();
     updateStats();
 }
 
